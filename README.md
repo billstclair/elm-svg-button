@@ -4,7 +4,7 @@ This library automates the button part of an SVG button, so you can focus on its
 
 The [`example`](https://github.com/billstclair/elm-svg-button/tree/master/example) directory contains a working, elm-reactor-friendly, example.
 
-To make a simple, rectangular, click-once button...
+To make a simple, rectangular, click-once button, with a two-pixel wide, black border...
 
 As one of your Msg options:
 
@@ -33,7 +33,7 @@ In your update function:
         ...
         ButtonMsg m ->
             let (button, cmd) =
-                Svg.Button.update m
+                Svg.Button.update m model.button
             in
             { model | button = button } ! cmd
         ...
@@ -41,9 +41,13 @@ In your update function:
 In your view function:
 
     Svg [...]
-      [ g [ x bx, y by, width bw, height bh ]
+      [ g [ Svg.Attributes.x bx
+          , Svg.Attributes.y by
+          , Svg.Attributes.width bw
+          , Svg.Attributes.height bh
+          ]
           [ renderMyBeautifulButton model   -- Draw your button
-          , Svg.Button.render model.button  -- Draw outline and transparent cover
+          , Svg.Button.render model.button  -- Draw outline and transparent overlay
           ]
       ]
 

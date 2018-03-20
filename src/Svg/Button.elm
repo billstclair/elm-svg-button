@@ -10,15 +10,28 @@
 ----------------------------------------------------------------------
 
 
-module Svg.Button exposing (Button, Msg, render, simpleButton, update)
+module Svg.Button exposing (Button, Msg, render, renderOutline, simpleButton, update)
 
-import Svg exposing (Svg)
+import Svg exposing (Svg, rect)
+import Svg.Attributes
+    exposing
+        ( fill
+        , height
+        , opacity
+        , stroke
+        , strokeOpacity
+        , strokeWidth
+        , width
+        , x
+        , y
+        )
+import Svg.Events exposing (onClick)
 
 
 {-| Opaque internal message.
 -}
 type Msg
-    = Nop
+    = Click
 
 
 {-| Button state.
@@ -32,9 +45,9 @@ type Button msg
 
 {-| Create a simple, rectanglar button.
 
-It will send a `msg` when clicked or tapped.
+It sends a `msg` when clicked or tapped.
 
-The `view` function will draw a two-pixel wide, black border around it. Your drawing function should leave room for that, or it will be overlaid.
+The `view` function draws a two-pixel wide, black border around it. Your drawing function should leave room for that, or it will be overlaid.
 
 -}
 simpleButton : ( Float, Float ) -> (Msg -> msg) -> Button msg
@@ -45,18 +58,69 @@ simpleButton size wrapper =
         }
 
 
-{-| Call this to repond to a message created by your wrapper.
+{-| Call this to process a message created by your wrapper.
 -}
 update : Msg -> Button msg -> ( Button msg, Cmd msg )
 update msg button =
-    button ! []
+    case msg of
+        Click ->
+            button ! []
 
 
-{-| Draw a button's border and transparent, mouse/touch-sensitive overlay.
+{-| Draw a button's transparent, mouse/touch-sensitive overlay.
 
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
 
 -}
 render : Button msg -> Svg msg
-render button =
-    Svg.g [] []
+render (Button button) =
+    let
+        ( w, h ) =
+            button.size
+
+        ws =
+            toString w
+
+        hs =
+            toString h
+    in
+    Svg.rect
+        [ x "0"
+        , y "0"
+        , width ws
+        , height hs
+        , opacity "0"
+        , onClick <| button.msgWrapper Click
+        ]
+        []
+
+
+{-| Draw a button's border.
+
+You should call this BEFORE drawing your button, so that its opaque body does not cover your beautiful drawing.
+
+-}
+renderOutline : Button msg -> Svg msg
+renderOutline (Button button) =
+    let
+        ( w, h ) =
+            button.size
+
+        ws =
+            toString (w - 2)
+
+        hs =
+            toString (h - 2)
+    in
+    Svg.rect
+        [ x "1"
+        , y "1"
+        , width ws
+        , height hs
+        , stroke "black"
+        , fill "white"
+        , strokeWidth "2"
+        , opacity "1"
+        , strokeOpacity "1"
+        ]
+        []
