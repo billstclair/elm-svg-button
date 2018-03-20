@@ -1,1 +1,1 @@
-Future home of `SvgButton` example.
+Future home of `Svg.Button` example.
