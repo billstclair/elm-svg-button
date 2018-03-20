@@ -59,12 +59,15 @@ simpleButton size wrapper =
 
 
 {-| Call this to process a message created by your wrapper.
+
+The `Bool` in the return value is true if this message should be interpreted as a click on the button.
+
 -}
-update : Msg -> Button msg -> ( Button msg, Cmd msg )
+update : Msg -> Button msg -> ( Bool, Button msg, Cmd msg )
 update msg button =
     case msg of
         Click ->
-            button ! []
+            ( True, button, Cmd.none )
 
 
 {-| Draw a button's transparent, mouse/touch-sensitive overlay.

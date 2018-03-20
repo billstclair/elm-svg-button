@@ -13,6 +13,7 @@
 module Example exposing (..)
 
 import Html exposing (Html, div, p, text)
+import Html.Attributes exposing (style)
 import Svg exposing (Attribute, Svg, svg)
 import Svg.Attributes
     exposing
@@ -60,12 +61,16 @@ update msg model =
     case msg of
         ButtonMsg msg ->
             let
-                ( button, cmd ) =
+                ( isClick, button, cmd ) =
                     Button.update msg model.button
             in
             { model
                 | button = button
-                , cnt = model.cnt + 1
+                , cnt =
+                    if isClick then
+                        model.cnt + 1
+                    else
+                        model.cnt
             }
                 ! []
 
@@ -73,7 +78,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ p []
+        [ p [ style [ ( "font-size", "48px" ) ] ]
             [ text "Count: "
             , text <| toString model.cnt
             ]
