@@ -26,7 +26,7 @@ import Svg.Attributes
         , x
         , y
         )
-import Svg.Button as Button exposing (Button, render, renderOutline, simpleButton)
+import Svg.Button as Button exposing (Button, Content(..), render, simpleButton)
 
 
 main =
@@ -40,7 +40,7 @@ main =
 
 type alias Model =
     { cnt : Int
-    , button : Button Msg
+    , button : Button
     }
 
 
@@ -51,7 +51,7 @@ type Msg
 init : ( Model, Cmd Msg )
 init =
     { cnt = 0
-    , button = simpleButton ( 500, 100 ) ButtonMsg
+    , button = simpleButton ( 500, 100 )
     }
         ! []
 
@@ -77,24 +77,19 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ p [ style [ ( "font-size", "48px" ) ] ]
+    div [ style [ ( "margin-left", "50px" ) ] ]
+        [ p [ style [ ( "font-size", "50px" ) ] ]
             [ text "Count: "
             , text <| toString model.cnt
             ]
         , p []
-            [ Svg.svg [ width "500", height "100" ]
-                [ renderOutline model.button
-                , Svg.text_
-                    [ fill "black"
-                    , fontSize "48"
-                    , x "250"
-                    , y "50"
-                    , textAnchor "middle"
-                    , alignmentBaseline "middle"
-                    ]
-                    [ Svg.text "Increment" ]
-                , render model.button
+            [ svg
+                [ width "500", height "100" ]
+                [ Button.render
+                    ( 0, 0 )
+                    (TextContent "Increment")
+                    ButtonMsg
+                    model.button
                 ]
             ]
         ]

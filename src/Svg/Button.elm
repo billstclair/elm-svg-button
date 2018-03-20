@@ -10,17 +10,32 @@
 ----------------------------------------------------------------------
 
 
-module Svg.Button exposing (Button, Msg, render, renderOutline, simpleButton, update)
+module Svg.Button
+    exposing
+        ( Button
+        , Content(..)
+        , Location
+        , Msg
+        , MsgWrapper
+        , render
+        , renderBorder
+        , renderOverlay
+        , simpleButton
+        , update
+        )
 
-import Svg exposing (Svg, rect)
+import Svg exposing (Svg, g, rect)
 import Svg.Attributes
     exposing
-        ( fill
+        ( alignmentBaseline
+        , fill
+        , fontSize
         , height
         , opacity
         , stroke
         , strokeOpacity
         , strokeWidth
+        , textAnchor
         , width
         , x
         , y
@@ -34,12 +49,24 @@ type Msg
     = Click
 
 
+type alias MsgWrapper msg =
+    Msg -> msg
+
+
+type Content msg
+    = TextContent String
+    | SvgContent (Svg msg)
+
+
+type alias Location =
+    ( Float, Float )
+
+
 {-| Button state.
 -}
-type Button msg
+type Button
     = Button
-        { size : ( Float, Float )
-        , msgWrapper : Msg -> msg
+        { size : Location
         }
 
 
@@ -50,11 +77,10 @@ It sends a `msg` when clicked or tapped.
 The `view` function draws a two-pixel wide, black border around it. Your drawing function should leave room for that, or it will be overlaid.
 
 -}
-simpleButton : ( Float, Float ) -> (Msg -> msg) -> Button msg
-simpleButton size wrapper =
+simpleButton : ( Float, Float ) -> Button
+simpleButton size =
     Button
         { size = size
-        , msgWrapper = wrapper
         }
 
 
@@ -63,11 +89,42 @@ simpleButton size wrapper =
 The `Bool` in the return value is true if this message should be interpreted as a click on the button.
 
 -}
-update : Msg -> Button msg -> ( Bool, Button msg, Cmd msg )
+update : Msg -> Button -> ( Bool, Button, Cmd msg )
 update msg button =
     case msg of
         Click ->
             ( True, button, Cmd.none )
+
+
+{-| Render a button's outline, your content, and the mouse-sensitive overlay.
+
+You will usually call this, instead of renderOutline and renderOverlay.
+
+-}
+render : Location -> Content msg -> MsgWrapper msg -> Button -> Svg msg
+render ( xf, yf ) content wrapper button =
+    case button of
+        Button but ->
+            let
+                ( xs, ys ) =
+                    ( toString xf, toString yf )
+
+                ( wf, hf ) =
+                    but.size
+
+                ( ws, hs ) =
+                    ( toString wf, toString hf )
+            in
+            g
+                [ x xs
+                , y ys
+                , width ws
+                , height hs
+                ]
+                [ renderBorder button
+                , renderContent content button
+                , renderOverlay wrapper button
+                ]
 
 
 {-| Draw a button's transparent, mouse/touch-sensitive overlay.
@@ -75,8 +132,8 @@ update msg button =
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
 
 -}
-render : Button msg -> Svg msg
-render (Button button) =
+renderOverlay : MsgWrapper msg -> Button -> Svg msg
+renderOverlay wrapper (Button button) =
     let
         ( w, h ) =
             button.size
@@ -93,7 +150,7 @@ render (Button button) =
         , width ws
         , height hs
         , opacity "0"
-        , onClick <| button.msgWrapper Click
+        , onClick <| wrapper Click
         ]
         []
 
@@ -103,8 +160,8 @@ render (Button button) =
 You should call this BEFORE drawing your button, so that its opaque body does not cover your beautiful drawing.
 
 -}
-renderOutline : Button msg -> Svg msg
-renderOutline (Button button) =
+renderBorder : Button -> Svg msg
+renderBorder (Button button) =
     let
         ( w, h ) =
             button.size
@@ -127,3 +184,27 @@ renderOutline (Button button) =
         , strokeOpacity "1"
         ]
         []
+
+
+renderContent : Content msg -> Button -> Svg msg
+renderContent content (Button button) =
+    g []
+        [ let
+            ( xf, yf ) =
+                button.size
+          in
+          case content of
+            TextContent string ->
+                Svg.text_
+                    [ fill "black"
+                    , fontSize <| toString (yf / 2)
+                    , x <| toString (xf / 2)
+                    , y <| toString (yf / 2)
+                    , textAnchor "middle"
+                    , alignmentBaseline "middle"
+                    ]
+                    [ Svg.text string ]
+
+            SvgContent svg ->
+                svg
+        ]

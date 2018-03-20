@@ -15,7 +15,7 @@ As one of your Msg options:
     
 In your model:
 
-    button : Svg.Button.Button Msg
+    button : Svg.Button.Button
     
 In your init function:
 
@@ -23,7 +23,7 @@ In your init function:
         (width, height)
     in
     { ...
-    , button = Svg.Button.simpleButton size ButtonMsg
+    , button = Svg.Button.simpleButton size
     , ...
     }
     
@@ -32,24 +32,30 @@ In your update function:
     case msg of
         ...
         ButtonMsg m ->
-            let (button, cmd) =
-                Svg.Button.update m model.button
+            let (isClick, button, cmd) =
+                    Svg.Button.update m model.button
+                mdl =
+                    if isClick then
+                        processClick model
+                    else
+                        model
             in
-            { model | button = button } ! cmd
+            { mdl | button = button } ! cmd
         ...
+
+Define the button's content:
+
+    buttonContent : Svg.Button.Content
+    buttonContent =
+        Svg.Button.TextContent "Press Me"
 
 In your view function:
 
     Svg [...]
-      [ g [ Svg.Attributes.x bx
-          , Svg.Attributes.y by
-          , Svg.Attributes.width bw
-          , Svg.Attributes.height bh
-          ]
-          [ renderMyBeautifulButton model   -- Draw your button
-          , Svg.Button.render model.button  -- Draw outline and transparent overlay
-          ]
-      ]
+        [ ...
+        , Svg.Button.render (x, y) buttonContent ButtonMsg model.button
+        ...
+        ]
 
 Bill St. Clair<br/>
 20 March, 2018
