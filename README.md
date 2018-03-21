@@ -4,41 +4,41 @@ This library automates the button part of an SVG button, so you can focus on its
 
 The [`example`](https://github.com/billstclair/elm-svg-button/tree/master/example) directory contains a working, elm-reactor-friendly, example.
 
-To make a simple, rectangular, click-once button, with a two-pixel wide, black border...
+So far, the library supports one basic button appearance, a rectangle with a two-pixel wide black border. I intend to allow you to customize the border and button shape. If you need that, please let me know, so I can prioritize those changes.
 
-A button has user state, which you usually use to encode what it does (for repeating buttons, it also has to encode the button's identity). But you can put anything you need there, and read and update it as necesssary (with `Svg.Button.getState` and `Svg.Button.setState`).
+A button has user state, which you usually use to encode what it does (for repeating buttons, it also needs to encode the button's identity). But you can put anything you need there, and read and update it as necesssary (with `Svg.Button.getState` and `Svg.Button.setState`).
 
     type Operation
         = Increment
         | Decrement
 
-As one of your Msg options:
+As one of your `Msg` options, you need a wrapper for the button messages:
 
     type Msg
       = ...
       | ButtonMsg (Svg.Button.Msg Msg Operation)
       ...
     
-Your model needs to store repeating buttons, but not simple buttons, and your update function needs to update the model when it receives messages containing them. See the example for how to code a repeating button, and for how to use `Svg.Button.getState` to process a click.
+Your model needs to store repeating buttons, but not simple buttons, and your update function needs to update the model when it receives messages containing them. See the example for how to code a repeating button, and for how to use `Svg.Button.getState` to process a click. This README documents only simple buttons.
     
-In your update function:
+In your `update` function:
 
     case msg of
         ...
         ButtonMsg m ->
-            let (isClick, button, cmd) =
+            let
+                ( isClick, button, _ ) =
                     Svg.Button.update m
-                mdl =
-                    if isClick then
-                        -- Use Svg.Button.getState to process the click
-                        processClick button model
-                    else
-                        model
+
+                operation =
+                    Svg.Button.getState button
             in
-            mdl ! [ cmd ]
+            operate isClick operation model
         ...
 
-Define the button's content:
+Where `operate` would be a function you defined to actually do the operation.
+
+Use `Svg.Button.Content` to define the button's appearance:
 
     pressMeContent : Svg.Button.Content
     pressMeContent =
@@ -50,7 +50,7 @@ Define a simple increment button:
     incrementButton =
         Svg.Button.simpleButton (100, 50) Increment
 
-In your view function:
+In your `view` function:
 
     Svg [...]
         [ ...
