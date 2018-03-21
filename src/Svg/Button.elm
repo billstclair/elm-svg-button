@@ -17,6 +17,7 @@ module Svg.Button
         , Location
         , Msg
         , MsgWrapper
+        , disableSelection
         , render
         , renderBorder
         , renderOverlay
@@ -24,17 +25,20 @@ module Svg.Button
         , update
         )
 
-import Svg exposing (Svg, g, rect)
+import Svg exposing (Attribute, Svg, g, rect, text, text_)
 import Svg.Attributes
     exposing
         ( alignmentBaseline
         , fill
+        , fillOpacity
         , fontSize
         , height
         , opacity
+        , pointerEvents
         , stroke
         , strokeOpacity
         , strokeWidth
+        , style
         , textAnchor
         , width
         , x
@@ -46,7 +50,7 @@ import Svg.Events exposing (onClick)
 {-| Opaque internal message.
 -}
 type Msg
-    = Click
+    = Click Button
 
 
 type alias MsgWrapper msg =
@@ -89,16 +93,16 @@ simpleButton size =
 The `Bool` in the return value is true if this message should be interpreted as a click on the button.
 
 -}
-update : Msg -> Button -> ( Bool, Button, Cmd msg )
-update msg button =
+update : Msg -> ( Bool, Button, Cmd msg )
+update msg =
     case msg of
-        Click ->
+        Click button ->
             ( True, button, Cmd.none )
 
 
 {-| Render a button's outline, your content, and the mouse-sensitive overlay.
 
-You will usually call this, instead of renderOutline and renderOverlay.
+Does this by sizing an SVG `g` element at the `Location` you pass and the size of the `Button`, and calling `renderBorder`, `renderContent`, and `renderOverlay` inside it.
 
 -}
 render : Location -> Content msg -> MsgWrapper msg -> Button -> Svg msg
@@ -127,6 +131,28 @@ render ( xf, yf ) content wrapper button =
                 ]
 
 
+{-| An attribute to disable mouse selection of an SVG element.
+
+`renderContent` includes this.
+
+From <https://www.webpagefx.com/blog/web-design/disable-text-selection/>. Thank you to Jacob Gube.
+
+-}
+disableSelection : Attribute msg
+disableSelection =
+    style <|
+        -- Firefox
+        "-moz-user-select: none;"
+            -- Internet Explorer
+            ++ "-ms-user-select: none;"
+            -- KHTML browsers (e.g. Konqueror)
+            ++ "-khtml-user-select: none;"
+            -- Chrome, Safari, and Opera
+            ++ "-webkit-user-select: none;"
+            --  Disable Android and iOS callouts*
+            ++ "-webkit-touch-callout: none;"
+
+
 {-| Draw a button's transparent, mouse/touch-sensitive overlay.
 
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
@@ -150,7 +176,8 @@ renderOverlay wrapper (Button button) =
         , width ws
         , height hs
         , opacity "0"
-        , onClick <| wrapper Click
+        , fillOpacity "1"
+        , onClick <| wrapper (Click <| Button button)
         ]
         []
 
@@ -188,22 +215,28 @@ renderBorder (Button button) =
 
 renderContent : Content msg -> Button -> Svg msg
 renderContent content (Button button) =
-    g []
+    g [ disableSelection ]
         [ let
             ( xf, yf ) =
                 button.size
+
+            yfo2s =
+                toString (yf / 2)
+
+            xfo2s =
+                toString (xf / 2)
           in
           case content of
             TextContent string ->
-                Svg.text_
+                text_
                     [ fill "black"
-                    , fontSize <| toString (yf / 2)
-                    , x <| toString (xf / 2)
-                    , y <| toString (yf / 2)
+                    , fontSize yfo2s
+                    , x xfo2s
+                    , y yfo2s
                     , textAnchor "middle"
                     , alignmentBaseline "middle"
                     ]
-                    [ Svg.text string ]
+                    [ text string ]
 
             SvgContent svg ->
                 svg

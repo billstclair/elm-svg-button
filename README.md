@@ -33,14 +33,14 @@ In your update function:
         ...
         ButtonMsg m ->
             let (isClick, button, cmd) =
-                    Svg.Button.update m model.button
+                    Svg.Button.update m
                 mdl =
                     if isClick then
                         processClick model
                     else
                         model
             in
-            { mdl | button = button } ! cmd
+            { mdl | button = button } ! [ cmd ]
         ...
 
 Define the button's content:

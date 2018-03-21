@@ -62,7 +62,7 @@ update msg model =
         ButtonMsg msg ->
             let
                 ( isClick, button, cmd ) =
-                    Button.update msg model.button
+                    Button.update msg
             in
             { model
                 | button = button
@@ -72,7 +72,7 @@ update msg model =
                     else
                         model.cnt
             }
-                ! []
+                ! [ cmd ]
 
 
 view : Model -> Html Msg
