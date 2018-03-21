@@ -48,18 +48,23 @@ main =
         }
 
 
-type Increment
+type Operation
     = Increment
     | Decrement
 
 
+type alias State =
+    ( Operation, Int )
+
+
 type alias ButtonMessage =
-    Button.Msg Msg Increment
+    Button.Msg Msg State
 
 
 type alias Model =
     { cnt : Int
-    , incrementButton : Button Increment
+    , incrementButton : Button State
+    , decrementButton : Button State
     , subscription : Maybe ( Time, ButtonMessage )
     }
 
@@ -68,13 +73,40 @@ type Msg
     = ButtonMsg ButtonMessage
 
 
+buttonSize : Button.Size
+buttonSize =
+    ( 500, 100 )
+
+
+buttonHeight : Float
+buttonHeight =
+    Tuple.second buttonSize
+
+
 init : ( Model, Cmd Msg )
 init =
     { cnt = 0
-    , incrementButton = repeatingButton normalRepeatTime ( 500, 100 ) Increment
+    , incrementButton =
+        repeatingButton normalRepeatTime buttonSize ( Increment, 0 )
+    , decrementButton =
+        repeatingButton normalRepeatTime buttonSize ( Decrement, 1 )
     , subscription = Nothing
     }
         ! []
+
+
+setButton : Button State -> Model -> Model
+setButton button model =
+    let
+        ( _, idx ) =
+            Button.getState button
+    in
+    if idx == 0 then
+        { model | incrementButton = button }
+    else if idx == 1 then
+        { model | decrementButton = button }
+    else
+        model
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -100,18 +132,17 @@ update msg model =
                     let
                         ( isClick, button, cmd ) =
                             Button.update msg
-                    in
-                    { model
-                        | incrementButton =
-                            case getState button of
-                                Increment ->
-                                    button
 
-                                _ ->
-                                    model.incrementButton
-                        , cnt =
+                        ( operation, _ ) =
+                            getState button
+
+                        mdl =
+                            setButton button model
+                    in
+                    { mdl
+                        | cnt =
                             if isClick then
-                                case getState button of
+                                case operation of
                                     Increment ->
                                         model.cnt + 1
 
@@ -123,6 +154,13 @@ update msg model =
                         ! [ cmd ]
 
 
+makeSimpleButton : Operation -> Button State
+makeSimpleButton operation =
+    simpleButton
+        buttonSize
+        ( operation, -1 )
+
+
 view : Model -> Html Msg
 view model =
     div [ style [ ( "margin-left", "50px" ) ] ]
@@ -132,17 +170,27 @@ view model =
             ]
         , p []
             [ svg
-                [ width "500", height "200" ]
+                [ width "500", height (toString <| 4 * buttonHeight) ]
                 [ Button.render
                     ( 0, 0 )
+                    (TextContent "Increment")
+                    ButtonMsg
+                    (makeSimpleButton Increment)
+                , Button.render
+                    ( 0, buttonHeight - 2 )
                     (TextContent "Repeating Increment")
                     ButtonMsg
                     model.incrementButton
                 , Button.render
-                    ( 0, 98 )
+                    ( 0, 2 * (buttonHeight - 2) )
+                    (TextContent "Repeating Decrement")
+                    ButtonMsg
+                    model.decrementButton
+                , Button.render
+                    ( 0, 3 * (buttonHeight - 2) )
                     (TextContent "Decrement")
                     ButtonMsg
-                    (simpleButton ( 500, 100 ) Decrement)
+                    (makeSimpleButton Decrement)
                 ]
             ]
         ]

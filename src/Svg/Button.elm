@@ -18,8 +18,8 @@ module Svg.Button
         , Msg
         , MsgWrapper
         , RepeatTime(..)
+        , Size
         , checkSubscription
-        , disableSelection
         , getState
         , normalRepeatTime
         , render
@@ -35,7 +35,7 @@ import Debug exposing (log)
 import Svg exposing (Attribute, Svg, g, rect, text, text_)
 import Svg.Attributes
     exposing
-        ( alignmentBaseline
+        ( dominantBaseline
         , fill
         , fillOpacity
         , fontSize
@@ -175,7 +175,7 @@ The `Bool` in the return value is true if this message should be interpreted as 
 -}
 update : Msg msg state -> ( Bool, Button state, Cmd msg )
 update msg =
-    case log "msg" msg of
+    case msg of
         Subscribe _ button _ ->
             ( False, button, Cmd.none )
 
@@ -343,7 +343,7 @@ disableSelection =
             -- Chrome, Safari, and Opera
             ++ "-webkit-user-select: none;"
             --  Disable Android and iOS callouts*
-            --++ "-webkit-touch-callout: none;"
+            ++ "-webkit-touch-callout: none;"
             -- Prevent resizing text to fit
             -- https://stackoverflow.com/questions/923782
             ++ "webkit-text-size-adjust: none;"
@@ -438,7 +438,7 @@ renderContent content (Button button) =
                     , x xfo2s
                     , y yfo2s
                     , textAnchor "middle"
-                    , alignmentBaseline "middle"
+                    , dominantBaseline "middle"
                     ]
                     [ text string ]
 
