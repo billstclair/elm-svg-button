@@ -41,19 +41,25 @@ Our `Button.Msg` has a more complicated state, including both the operation and 
         , subscription : Maybe ( Time, Button.Msg Msg State )
         }
 
+The example splits button messages into simple ones, containing only an `Operation` for state, and more general ones, containing `(Operation, WhichButton)` for state:
+
+    type Msg
+        = SimpleButtonMsg (Button.Msg Msg Operation)
+        | ButtonMsg (Button.Msg Msg State)
+
 And here's how those two stateful buttons are initialized:
 
     init : ( Model, Cmd Msg )
     init =
         { cnt = 0
         , incrementButton =
-            repeatingButton
-                normalRepeatTime
+            Button.repeatingButton
+                Button.normalRepeatTime
                 buttonSize
                 ( Increment, IncrementButton )
         , decrementButton =
-            repeatingButton
-                normalRepeatTime
+            Button.repeatingButton
+                Button.normalRepeatTime
                 buttonSize
                 ( Decrement, DecrementButton )
         , subscription = Nothing
@@ -116,4 +122,4 @@ Finally, the subscription information is used to subscribe to `Time` updates:
                 Sub.none
 
             Just ( time, msg ) ->
-                Time.every time (\time -> ButtonMsg msg)
+                Time.every time (\_ -> ButtonMsg msg)

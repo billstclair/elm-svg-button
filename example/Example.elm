@@ -30,10 +30,6 @@ import Svg.Button as Button
     exposing
         ( Button
         , Content(..)
-        , normalRepeatTime
-        , render
-        , repeatingButton
-        , simpleButton
         )
 import Time exposing (Time)
 
@@ -88,13 +84,13 @@ init : ( Model, Cmd Msg )
 init =
     { cnt = 0
     , incrementButton =
-        repeatingButton
-            normalRepeatTime
+        Button.repeatingButton
+            Button.normalRepeatTime
             buttonSize
             ( Increment, IncrementButton )
     , decrementButton =
-        repeatingButton
-            normalRepeatTime
+        Button.repeatingButton
+            Button.normalRepeatTime
             buttonSize
             ( Decrement, DecrementButton )
     , subscription = Nothing
@@ -172,13 +168,6 @@ update msg model =
                         ! [ cmd ]
 
 
-makeSimpleButton : Operation -> Button Operation
-makeSimpleButton operation =
-    simpleButton
-        buttonSize
-        operation
-
-
 view : Model -> Html Msg
 view model =
     div [ style [ ( "margin-left", "50px" ) ] ]
@@ -193,7 +182,7 @@ view model =
                     ( 0, 0 )
                     (TextContent "Increment")
                     SimpleButtonMsg
-                    (simpleButton buttonSize Increment)
+                    (Button.simpleButton buttonSize Increment)
                 , Button.render
                     ( 0, buttonHeight - 2 )
                     (TextContent "Repeating Increment")
@@ -208,7 +197,7 @@ view model =
                     ( 0, 3 * (buttonHeight - 2) )
                     (TextContent "Decrement")
                     SimpleButtonMsg
-                    (simpleButton buttonSize Decrement)
+                    (Button.simpleButton buttonSize Decrement)
                 ]
             ]
         ]
@@ -221,4 +210,4 @@ subscriptions model =
             Sub.none
 
         Just ( time, msg ) ->
-            Time.every time (\time -> ButtonMsg msg)
+            Time.every time (\_ -> ButtonMsg msg)
