@@ -6,26 +6,20 @@ The [`example`](https://github.com/billstclair/elm-svg-button/tree/master/exampl
 
 To make a simple, rectangular, click-once button, with a two-pixel wide, black border...
 
+A button has user state, which you usually use to encode what it does (for repeating buttons, it also has to encode the button's identity).
+
+    type Operation
+        = Increment
+        | Decrement
+
 As one of your Msg options:
 
     type Msg
       = ...
-      | ButtonMsg Svg.Button.Msg
+      | ButtonMsg (Svg.Button.Msg Msg Operation)
       ...
     
-In your model:
-
-    button : Svg.Button.Button
-    
-In your init function:
-
-    let size =
-        (width, height)
-    in
-    { ...
-    , button = Svg.Button.simpleButton size
-    , ...
-    }
+Your model needs to store repeating buttons, but not simple buttons, and your update function needs to update the model when it receives messages containing them. See the example for how to code a repeating button, and for how to use `Svg.Button.getState` to process a click.
     
 In your update function:
 
@@ -36,24 +30,35 @@ In your update function:
                     Svg.Button.update m
                 mdl =
                     if isClick then
-                        processClick model
+                        -- Use Svg.Button.getState to process the click
+                        processClick button model
                     else
                         model
             in
-            { mdl | button = button } ! [ cmd ]
+            mdl ! [ cmd ]
         ...
 
 Define the button's content:
 
-    buttonContent : Svg.Button.Content
-    buttonContent =
+    pressMeContent : Svg.Button.Content
+    pressMeContent =
         Svg.Button.TextContent "Press Me"
+
+Define a simple increment button:
+
+    incrementButton : Svg.Button.Button Operation
+    incrementButton =
+        Svg.Button.simpleButton size Increment
 
 In your view function:
 
     Svg [...]
         [ ...
-        , Svg.Button.render (x, y) buttonContent ButtonMsg model.button
+        , Svg.Button.render
+              (x, y)
+              pressMeContent
+              ButtonMsg
+              incrementButton
         ...
         ]
 

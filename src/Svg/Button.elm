@@ -17,10 +17,16 @@ module Svg.Button
         , Location
         , Msg
         , MsgWrapper
+        , RepeatTime(..)
+        , checkSubscription
         , disableSelection
+        , getState
+        , normalRepeatTime
         , render
         , renderBorder
         , renderOverlay
+        , repeatingButton
+        , setState
         , simpleButton
         , update
         )
@@ -40,21 +46,39 @@ import Svg.Attributes
         , strokeWidth
         , style
         , textAnchor
+        , transform
         , width
         , x
         , y
         )
-import Svg.Events exposing (onClick)
+import Svg.Events exposing (onClick, onMouseDown, onMouseOut, onMouseOver, onMouseUp)
+import Task
+import Time exposing (Time)
 
 
 {-| Opaque internal message.
 -}
-type Msg
-    = Click Button
+type Msg msg state
+    = MouseDown (Button state) (MsgWrapper msg state)
+    | MouseOut (Button state) (MsgWrapper msg state)
+    | MouseUp (Button state) (MsgWrapper msg state)
+    | Repeat (Button state) (MsgWrapper msg state)
+    | Subscribe Time (Button state) (MsgWrapper msg state)
 
 
-type alias MsgWrapper msg =
-    Msg -> msg
+getState : Button state -> state
+getState (Button button) =
+    button.state
+
+
+setState : state -> Button state -> Button state
+setState state (Button button) =
+    Button
+        { button | state = state }
+
+
+type alias MsgWrapper msg state =
+    Msg msg state -> msg
 
 
 type Content msg
@@ -66,11 +90,19 @@ type alias Location =
     ( Float, Float )
 
 
+type alias Size =
+    ( Float, Float )
+
+
 {-| Button state.
 -}
-type Button
+type Button state
     = Button
-        { size : Location
+        { size : Size
+        , repeatTime : RepeatTime
+        , delay : Time
+        , enabled : Bool
+        , state : state
         }
 
 
@@ -81,11 +113,53 @@ It sends a `msg` when clicked or tapped.
 The `view` function draws a two-pixel wide, black border around it. Your drawing function should leave room for that, or it will be overlaid.
 
 -}
-simpleButton : ( Float, Float ) -> Button
-simpleButton size =
+simpleButton : Size -> state -> Button state
+simpleButton =
+    repeatingButton NoRepeat
+
+
+{-| First arg to `repeatingButton`.
+
+`RepeatTimeWithInitialDelay initial subsequent`
+
+-}
+type RepeatTime
+    = NoRepeat
+    | RepeatTime Time
+    | RepeatTimeWithInitialDelay Time Time
+
+
+{-| Like `simpleButton`, but repeats the press periodically.
+-}
+repeatingButton : RepeatTime -> Size -> state -> Button state
+repeatingButton repeatTime size state =
     Button
         { size = size
+        , repeatTime = repeatTime
+        , delay = 0
+        , enabled = True
+        , state = state
         }
+
+
+repeatDelays : RepeatTime -> ( Time, Time )
+repeatDelays repeatTime =
+    case repeatTime of
+        NoRepeat ->
+            ( 0, 0 )
+
+        RepeatTime delay ->
+            ( delay, delay )
+
+        RepeatTimeWithInitialDelay delay nextDelay ->
+            ( delay, nextDelay )
+
+
+normalRepeatTime : RepeatTime
+normalRepeatTime =
+    RepeatTimeWithInitialDelay
+        (500 * Time.millisecond)
+        (100 * Time.millisecond)
 
 
 {-| Call this to process a message created by your wrapper.
@@ -93,11 +167,91 @@ simpleButton size =
 The `Bool` in the return value is true if this message should be interpreted as a click on the button.
 
 -}
-update : Msg -> ( Bool, Button, Cmd msg )
+update : Msg msg state -> ( Bool, Button state, Cmd msg )
 update msg =
     case msg of
-        Click button ->
-            ( True, button, Cmd.none )
+        Subscribe _ button _ ->
+            ( False, button, Cmd.none )
+
+        MouseDown button wrapper ->
+            case button of
+                Button but ->
+                    let
+                        ( initialDelay, delay ) =
+                            repeatDelays but.repeatTime
+
+                        button2 =
+                            Button
+                                { but
+                                    | enabled = True
+                                    , delay = delay
+                                }
+                    in
+                    ( initialDelay > 0
+                    , button2
+                    , repeatCmd initialDelay button2 wrapper
+                    )
+
+        MouseOut button wrapper ->
+            case button of
+                Button but ->
+                    let
+                        button2 =
+                            Button
+                                { but
+                                    | enabled = False
+                                    , delay = 0
+                                }
+                    in
+                    ( False
+                    , button2
+                    , repeatCmd 0 button2 wrapper
+                    )
+
+        MouseUp button wrapper ->
+            case button of
+                Button but ->
+                    let
+                        button2 =
+                            Button
+                                { but
+                                    | enabled = False
+                                    , delay = 0
+                                }
+                    in
+                    ( but.enabled && but.delay <= 0
+                    , button2
+                    , repeatCmd 0 button2 wrapper
+                    )
+
+        Repeat button wrapper ->
+            case button of
+                Button but ->
+                    ( True
+                    , button
+                    , repeatCmd but.delay button wrapper
+                    )
+
+
+repeatCmd : Time -> Button state -> MsgWrapper msg state -> Cmd msg
+repeatCmd delay button wrapper =
+    case button of
+        Button but ->
+            let
+                task =
+                    Task.succeed (Subscribe delay button wrapper)
+            in
+            Task.perform wrapper task
+
+
+checkSubscription : Msg msg state -> Maybe ( Time, Msg msg state )
+checkSubscription msg =
+    case msg of
+        Subscribe delay button wrapper ->
+            Just ( delay, Repeat button wrapper )
+
+        _ ->
+            Nothing
 
 
 {-| Render a button's outline, your content, and the mouse-sensitive overlay.
@@ -105,7 +259,7 @@ update msg =
 Does this by sizing an SVG `g` element at the `Location` you pass and the size of the `Button`, and calling `renderBorder`, `renderContent`, and `renderOverlay` inside it.
 
 -}
-render : Location -> Content msg -> MsgWrapper msg -> Button -> Svg msg
+render : Location -> Content msg -> MsgWrapper msg state -> Button state -> Svg msg
 render ( xf, yf ) content wrapper button =
     case button of
         Button but ->
@@ -120,10 +274,7 @@ render ( xf, yf ) content wrapper button =
                     ( toString wf, toString hf )
             in
             g
-                [ x xs
-                , y ys
-                , width ws
-                , height hs
+                [ transform ("translate(" ++ xs ++ " " ++ ys ++ ")")
                 ]
                 [ renderBorder button
                 , renderContent content button
@@ -151,6 +302,9 @@ disableSelection =
             ++ "-webkit-user-select: none;"
             --  Disable Android and iOS callouts*
             ++ "-webkit-touch-callout: none;"
+            -- Prevent resizing text to fit
+            -- https://stackoverflow.com/questions/923782
+            ++ "webkit-text-size-adjust: none;"
 
 
 {-| Draw a button's transparent, mouse/touch-sensitive overlay.
@@ -158,9 +312,12 @@ disableSelection =
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
 
 -}
-renderOverlay : MsgWrapper msg -> Button -> Svg msg
+renderOverlay : MsgWrapper msg state -> Button state -> Svg msg
 renderOverlay wrapper (Button button) =
     let
+        but =
+            Button button
+
         ( w, h ) =
             button.size
 
@@ -177,7 +334,10 @@ renderOverlay wrapper (Button button) =
         , height hs
         , opacity "0"
         , fillOpacity "1"
-        , onClick <| wrapper (Click <| Button button)
+        , onMouseDown (wrapper <| MouseDown but wrapper)
+        , onMouseUp (wrapper <| MouseUp but wrapper)
+        , onMouseOut (wrapper <| MouseOut but wrapper)
+        , disableSelection
         ]
         []
 
@@ -187,7 +347,7 @@ renderOverlay wrapper (Button button) =
 You should call this BEFORE drawing your button, so that its opaque body does not cover your beautiful drawing.
 
 -}
-renderBorder : Button -> Svg msg
+renderBorder : Button state -> Svg msg
 renderBorder (Button button) =
     let
         ( w, h ) =
@@ -213,7 +373,7 @@ renderBorder (Button button) =
         []
 
 
-renderContent : Content msg -> Button -> Svg msg
+renderContent : Content msg -> Button state -> Svg msg
 renderContent content (Button button) =
     g [ disableSelection ]
         [ let

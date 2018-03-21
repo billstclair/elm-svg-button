@@ -26,7 +26,17 @@ import Svg.Attributes
         , x
         , y
         )
-import Svg.Button as Button exposing (Button, Content(..), render, simpleButton)
+import Svg.Button as Button
+    exposing
+        ( Button
+        , Content(..)
+        , getState
+        , normalRepeatTime
+        , render
+        , repeatingButton
+        , simpleButton
+        )
+import Time exposing (Time)
 
 
 main =
@@ -34,24 +44,35 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = \model -> Sub.none
+        , subscriptions = subscriptions
         }
+
+
+type Increment
+    = Increment
+    | Decrement
+
+
+type alias ButtonMessage =
+    Button.Msg Msg Increment
 
 
 type alias Model =
     { cnt : Int
-    , button : Button
+    , incrementButton : Button Increment
+    , subscription : Maybe ( Time, ButtonMessage )
     }
 
 
 type Msg
-    = ButtonMsg Button.Msg
+    = ButtonMsg ButtonMessage
 
 
 init : ( Model, Cmd Msg )
 init =
     { cnt = 0
-    , button = simpleButton ( 500, 100 )
+    , incrementButton = repeatingButton normalRepeatTime ( 500, 100 ) Increment
+    , subscription = Nothing
     }
         ! []
 
@@ -60,19 +81,46 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ButtonMsg msg ->
-            let
-                ( isClick, button, cmd ) =
-                    Button.update msg
-            in
-            { model
-                | button = button
-                , cnt =
-                    if isClick then
-                        model.cnt + 1
-                    else
-                        model.cnt
-            }
-                ! [ cmd ]
+            case Button.checkSubscription msg of
+                Just subscription ->
+                    let
+                        ( time, _ ) =
+                            subscription
+                    in
+                    { model
+                        | subscription =
+                            if time <= 0 then
+                                Nothing
+                            else
+                                Just subscription
+                    }
+                        ! []
+
+                Nothing ->
+                    let
+                        ( isClick, button, cmd ) =
+                            Button.update msg
+                    in
+                    { model
+                        | incrementButton =
+                            case getState button of
+                                Increment ->
+                                    button
+
+                                _ ->
+                                    model.incrementButton
+                        , cnt =
+                            if isClick then
+                                case getState button of
+                                    Increment ->
+                                        model.cnt + 1
+
+                                    Decrement ->
+                                        model.cnt - 1
+                            else
+                                model.cnt
+                    }
+                        ! [ cmd ]
 
 
 view : Model -> Html Msg
@@ -84,12 +132,27 @@ view model =
             ]
         , p []
             [ svg
-                [ width "500", height "100" ]
+                [ width "500", height "200" ]
                 [ Button.render
                     ( 0, 0 )
-                    (TextContent "Increment")
+                    (TextContent "Repeating Increment")
                     ButtonMsg
-                    model.button
+                    model.incrementButton
+                , Button.render
+                    ( 0, 98 )
+                    (TextContent "Decrement")
+                    ButtonMsg
+                    (simpleButton ( 500, 100 ) Decrement)
                 ]
             ]
         ]
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model.subscription of
+        Nothing ->
+            Sub.none
+
+        Just ( time, msg ) ->
+            Time.every time (\time -> ButtonMsg msg)
