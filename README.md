@@ -30,7 +30,7 @@ In your update function:
                     Svg.Button.update m
                 mdl =
                     if isClick then
-                        -- Use Svg.Button.getState3 to process the click
+                        -- Use Svg.Button.getState to process the click
                         processClick button model
                     else
                         model
@@ -48,7 +48,7 @@ Define a simple increment button:
 
     incrementButton : Svg.Button.Button Operation
     incrementButton =
-        Svg.Button.simpleButton size Increment
+        Svg.Button.simpleButton (100, 50) Increment
 
 In your view function:
 
