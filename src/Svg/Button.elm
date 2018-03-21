@@ -31,6 +31,7 @@ module Svg.Button
         , update
         )
 
+import Debug exposing (log)
 import Svg exposing (Attribute, Svg, g, rect, text, text_)
 import Svg.Attributes
     exposing
@@ -54,6 +55,7 @@ import Svg.Attributes
 import Svg.Events exposing (onClick, onMouseDown, onMouseOut, onMouseOver, onMouseUp)
 import Task
 import Time exposing (Time)
+import TouchEvents exposing (Touch, onTouchEnd, onTouchMove, onTouchStart)
 
 
 {-| Opaque internal message.
@@ -62,6 +64,8 @@ type Msg msg state
     = MouseDown (Button state) (MsgWrapper msg state)
     | MouseOut (Button state) (MsgWrapper msg state)
     | MouseUp (Button state) (MsgWrapper msg state)
+    | TouchStart (Button state) (MsgWrapper msg state)
+    | TouchEnd (Button state) (MsgWrapper msg state)
     | Repeat (Button state) (MsgWrapper msg state)
     | Subscribe Time (Button state) (MsgWrapper msg state)
 
@@ -103,6 +107,7 @@ type Button state
         , delay : Time
         , enabled : Bool
         , state : state
+        , touchAware : Bool
         }
 
 
@@ -139,6 +144,7 @@ repeatingButton repeatTime size state =
         , delay = 0
         , enabled = True
         , state = state
+        , touchAware = False
         }
 
 
@@ -169,9 +175,29 @@ The `Bool` in the return value is true if this message should be interpreted as 
 -}
 update : Msg msg state -> ( Bool, Button state, Cmd msg )
 update msg =
-    case msg of
+    case log "msg" msg of
         Subscribe _ button _ ->
             ( False, button, Cmd.none )
+
+        TouchStart button wrapper ->
+            case button of
+                Button but ->
+                    let
+                        ( initialDelay, delay ) =
+                            repeatDelays but.repeatTime
+
+                        button2 =
+                            Button
+                                { but
+                                    | touchAware = True
+                                    , enabled = True
+                                    , delay = delay
+                                }
+                    in
+                    ( initialDelay > 0
+                    , button2
+                    , repeatCmd initialDelay button2 wrapper
+                    )
 
         MouseDown button wrapper ->
             case button of
@@ -187,7 +213,7 @@ update msg =
                                     , delay = delay
                                 }
                     in
-                    ( initialDelay > 0
+                    ( initialDelay > 0 && not but.touchAware
                     , button2
                     , repeatCmd initialDelay button2 wrapper
                     )
@@ -208,6 +234,22 @@ update msg =
                     , repeatCmd 0 button2 wrapper
                     )
 
+        TouchEnd button wrapper ->
+            case button of
+                Button but ->
+                    let
+                        button2 =
+                            Button
+                                { but
+                                    | enabled = False
+                                    , delay = 0
+                                }
+                    in
+                    ( but.enabled && but.touchAware && but.delay <= 0
+                    , button2
+                    , repeatCmd 0 button2 wrapper
+                    )
+
         MouseUp button wrapper ->
             case button of
                 Button but ->
@@ -219,7 +261,7 @@ update msg =
                                     , delay = 0
                                 }
                     in
-                    ( but.enabled && but.delay <= 0
+                    ( but.enabled && not but.touchAware && but.delay <= 0
                     , button2
                     , repeatCmd 0 button2 wrapper
                     )
@@ -301,7 +343,7 @@ disableSelection =
             -- Chrome, Safari, and Opera
             ++ "-webkit-user-select: none;"
             --  Disable Android and iOS callouts*
-            ++ "-webkit-touch-callout: none;"
+            --++ "-webkit-touch-callout: none;"
             -- Prevent resizing text to fit
             -- https://stackoverflow.com/questions/923782
             ++ "webkit-text-size-adjust: none;"
@@ -334,7 +376,9 @@ renderOverlay wrapper (Button button) =
         , height hs
         , opacity "0"
         , fillOpacity "1"
+        , onTouchStart (\touch -> wrapper <| TouchStart but wrapper)
         , onMouseDown (wrapper <| MouseDown but wrapper)
+        , onTouchEnd (\touch -> wrapper <| TouchEnd but wrapper)
         , onMouseUp (wrapper <| MouseUp but wrapper)
         , onMouseOut (wrapper <| MouseOut but wrapper)
         , disableSelection

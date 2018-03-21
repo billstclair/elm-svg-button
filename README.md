@@ -6,7 +6,7 @@ The [`example`](https://github.com/billstclair/elm-svg-button/tree/master/exampl
 
 To make a simple, rectangular, click-once button, with a two-pixel wide, black border...
 
-A button has user state, which you usually use to encode what it does (for repeating buttons, it also has to encode the button's identity).
+A button has user state, which you usually use to encode what it does (for repeating buttons, it also has to encode the button's identity). But you can put anything you need there, and read and update it as necesssary (with `Svg.Button.getState` and `Svg.Button.setState`).
 
     type Operation
         = Increment
@@ -30,7 +30,7 @@ In your update function:
                     Svg.Button.update m
                 mdl =
                     if isClick then
-                        -- Use Svg.Button.getState to process the click
+                        -- Use Svg.Button.getState3 to process the click
                         processClick button model
                     else
                         model
