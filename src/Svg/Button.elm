@@ -31,6 +31,42 @@ module Svg.Button
         , update
         )
 
+{-| The `Svg.Button` module makes it easy to create SVG buttons.
+
+Currently, the buttons are rectangular, with a two-pixel wide black border, containing either text or Svg you provide for their body. They support single clicks or repeated clicks, and work on both regular computer browsers, with a mouse, or portable browsers, with a touch screen.
+
+
+# Types
+
+@docs Button , Content, Location, Size, Msg, MsgWrapper, RepeatTime
+
+
+# Constructors
+
+@docs simpleButton, repeatingButton
+
+
+# Button state accessors
+
+@docs getState, setState
+
+
+# Constants
+
+@docs normalRepeatTime
+
+
+# Rendering
+
+@docs render, renderBorder, renderOverlay
+
+
+# Events
+
+@docs update, checkSubscription
+
+-}
+
 import Debug exposing (log)
 import Svg exposing (Attribute, Svg, g, rect, text, text_)
 import Svg.Attributes
@@ -59,6 +95,9 @@ import TouchEvents exposing (Touch, onTouchEnd, onTouchMove, onTouchStart)
 
 
 {-| Opaque internal message.
+
+You wrap these with the `MsgWrapper` you pass to `render`, and pass them to `update`.
+
 -}
 type Msg msg state
     = MouseDown (Button state) (MsgWrapper msg state)
@@ -70,35 +109,55 @@ type Msg msg state
     | Subscribe Time (Button state) (MsgWrapper msg state)
 
 
+{-| Read a button's `state`.
+-}
 getState : Button state -> state
 getState (Button button) =
     button.state
 
 
+{-| Set a button's `state`.
+-}
 setState : state -> Button state -> Button state
 setState state (Button button) =
     Button
         { button | state = state }
 
 
+{-| A user message wrapper which turns an Svg.Button.Msg into a user msg.
+-}
 type alias MsgWrapper msg state =
     Msg msg state -> msg
 
 
+{-| Two ways to draw the button content.
+
+`TextContent` encapsulates a `String`, which is sized to half the button height and centered.
+
+`SvgContent` allows you to render any `Svg` you wish.
+
+-}
 type Content msg
     = TextContent String
     | SvgContent (Svg msg)
 
 
+{-| A two-dimensional location: (x, y)
+-}
 type alias Location =
     ( Float, Float )
 
 
+{-| A two-dimensional size: (width, height)
+-}
 type alias Size =
     ( Float, Float )
 
 
-{-| Button state.
+{-| An Svg Button.
+
+Create one with `simpleButton` or `repeatingButton`.
+
 -}
 type Button state
     = Button
@@ -125,7 +184,7 @@ simpleButton =
 
 {-| First arg to `repeatingButton`.
 
-`RepeatTimeWithInitialDelay initial subsequent`
+The two `Time` args to `RepeatTimeWithInitialDelay` are the initial delay and the subsequent repeat period.
 
 -}
 type RepeatTime
@@ -134,7 +193,7 @@ type RepeatTime
     | RepeatTimeWithInitialDelay Time Time
 
 
-{-| Like `simpleButton`, but repeats the press periodically.
+{-| Like `simpleButton`, but repeats the click or tap periodically, as long as the mouse or finger is held down.
 -}
 repeatingButton : RepeatTime -> Size -> state -> Button state
 repeatingButton repeatTime size state =
@@ -161,6 +220,11 @@ repeatDelays repeatTime =
             ( delay, nextDelay )
 
 
+{-| This is the usual value used for the repeat time of a repeating button.
+
+It has an initial delay of 1/2 second and a repeat period of 1/10 second.
+
+-}
 normalRepeatTime : RepeatTime
 normalRepeatTime =
     RepeatTimeWithInitialDelay
@@ -168,9 +232,9 @@ normalRepeatTime =
         (100 * Time.millisecond)
 
 
-{-| Call this to process a message created by your wrapper.
+{-| Call this to process a Button message from inside your wrapper.
 
-The `Bool` in the return value is true if this message should be interpreted as a click on the button.
+The `Bool` in the return value is true if this message should be interpreted as a click on the button. Simple buttons never change the button or return a command you need to care about, but you'll need to call `getState` on the button to figure out what to do (unless your application has only a single button).
 
 -}
 update : Msg msg state -> ( Bool, Button state, Cmd msg )
@@ -286,6 +350,13 @@ repeatCmd delay button wrapper =
             Task.perform wrapper task
 
 
+{-| Subscriptions are one type of message you can get inside your wrapper.
+
+In order to check if a message is a subscription, call `checkSubscription`. If it returns a time delay and Button message, you need to use that to create a time subscription for your application.
+
+Simple buttons don't need subscriptions. Only repeating buttons use them.
+
+-}
 checkSubscription : Msg msg state -> Maybe ( Time, Msg msg state )
 checkSubscription msg =
     case msg of
@@ -351,6 +422,8 @@ disableSelection =
 
 {-| Draw a button's transparent, mouse/touch-sensitive overlay.
 
+You won't usually use this, letting `render` call it for you.
+
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
 
 -}
@@ -387,6 +460,8 @@ renderOverlay wrapper (Button button) =
 
 
 {-| Draw a button's border.
+
+You won't usually use this, letting `render` call it for you.
 
 You should call this BEFORE drawing your button, so that its opaque body does not cover your beautiful drawing.
 
