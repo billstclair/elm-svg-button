@@ -1,5 +1,5 @@
 {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "summary": "elm-svg-button eases creation of SVG buttons.",
     "repository": "https://github.com/billstclair/elm-svg-button.git",
     "license": "MIT",

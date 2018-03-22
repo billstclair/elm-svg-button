@@ -20,6 +20,7 @@ module Svg.Button
         , RepeatTime(..)
         , Size
         , checkSubscription
+        , getSize
         , getState
         , isTouchAware
         , normalRepeatTime
@@ -28,6 +29,7 @@ module Svg.Button
         , renderContent
         , renderOverlay
         , repeatingButton
+        , setSize
         , setState
         , setTouchAware
         , simpleButton
@@ -51,7 +53,7 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 
 # Button state accessors
 
-@docs getState, setState, isTouchAware, setTouchAware
+@docs getState, setState, isTouchAware, setTouchAware, getSize, setSize
 
 
 # Constants
@@ -125,6 +127,21 @@ setState : state -> Button state -> Button state
 setState state (Button button) =
     Button
         { button | state = state }
+
+
+{-| Read a button's size.
+-}
+getSize : Button state -> Size
+getSize (Button button) =
+    button.size
+
+
+{-| Set a button's size.
+-}
+setSize : Size -> Button state -> Button state
+setSize size (Button button) =
+    Button
+        { button | size = size }
 
 
 {-| Return True if a Button is touch aware.
