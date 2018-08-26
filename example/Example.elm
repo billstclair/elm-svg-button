@@ -10,8 +10,9 @@
 ----------------------------------------------------------------------
 
 
-module Example exposing (..)
+module Example exposing (Model, Msg(..), Operation(..), State, WhichButton(..), buttonHeight, buttonSize, init, main, operate, setButton, subscriptions, update, view)
 
+import Browser
 import Html exposing (Html, div, p, text)
 import Html.Attributes exposing (style)
 import Svg exposing (Attribute, Svg, svg)
@@ -31,12 +32,12 @@ import Svg.Button as Button
         ( Button
         , Content(..)
         )
-import Time exposing (Time)
+import Time exposing (Posix)
 
 
 main =
-    Html.program
-        { init = init
+    Browser.element
+        { init = \() -> init
         , view = view
         , update = update
         , subscriptions = subscriptions
@@ -61,7 +62,7 @@ type alias Model =
     { cnt : Int
     , incrementButton : Button State
     , decrementButton : Button State
-    , subscription : Maybe ( Time, Button.Msg Msg State )
+    , subscription : Maybe ( Float, Button.Msg Msg State )
     }
 
 
@@ -80,22 +81,27 @@ buttonHeight =
     Tuple.second buttonSize
 
 
+cmdNone : model -> ( model, Cmd msg )
+cmdNone msg =
+    ( msg, Cmd.none )
+
+
 init : ( Model, Cmd Msg )
 init =
-    { cnt = 0
-    , incrementButton =
-        Button.repeatingButton
-            Button.normalRepeatTime
-            buttonSize
-            ( Increment, IncrementButton )
-    , decrementButton =
-        Button.repeatingButton
-            Button.normalRepeatTime
-            buttonSize
-            ( Decrement, DecrementButton )
-    , subscription = Nothing
-    }
-        ! []
+    cmdNone
+        { cnt = 0
+        , incrementButton =
+            Button.repeatingButton
+                Button.normalRepeatTime
+                buttonSize
+                ( Increment, IncrementButton )
+        , decrementButton =
+            Button.repeatingButton
+                Button.normalRepeatTime
+                buttonSize
+                ( Decrement, DecrementButton )
+        , subscription = Nothing
+        }
 
 
 setButton : Button State -> Model -> Model
@@ -116,6 +122,7 @@ operate : Bool -> Operation -> Model -> Model
 operate isClick operation model =
     if not isClick then
         model
+
     else
         { model
             | cnt =
@@ -131,32 +138,33 @@ operate isClick operation model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        SimpleButtonMsg msg ->
+        SimpleButtonMsg m ->
             let
                 ( isClick, button, _ ) =
-                    Button.update msg
+                    Button.update m
 
                 operation =
                     Button.getState button
             in
-            operate isClick operation model ! []
+            cmdNone <| operate isClick operation model
 
-        ButtonMsg msg ->
-            case Button.checkSubscription msg of
-                Just ( time, msg ) ->
-                    { model
-                        | subscription =
-                            if time <= 0 then
-                                Nothing
-                            else
-                                Just ( time, msg )
-                    }
-                        ! []
+        ButtonMsg m ->
+            case Button.checkSubscription m of
+                Just ( time, m2 ) ->
+                    cmdNone
+                        { model
+                            | subscription =
+                                if time <= 0 then
+                                    Nothing
+
+                                else
+                                    Just ( time, m2 )
+                        }
 
                 Nothing ->
                     let
                         ( isClick, button, cmd ) =
-                            Button.update msg
+                            Button.update m
 
                         ( operation, _ ) =
                             Button.getState button
@@ -164,20 +172,19 @@ update msg model =
                         mdl =
                             setButton button model
                     in
-                    operate isClick operation mdl
-                        ! [ cmd ]
+                    ( operate isClick operation mdl, cmd )
 
 
 view : Model -> Html Msg
 view model =
-    div [ style [ ( "margin-left", "50px" ) ] ]
-        [ p [ style [ ( "font-size", "50px" ) ] ]
+    div [ style "margin-left" "50px" ]
+        [ p [ style "font-size" "50px" ]
             [ text "Count: "
-            , text <| toString model.cnt
+            , text <| String.fromInt model.cnt
             ]
         , p []
             [ svg
-                [ width "500", height (toString <| 4 * buttonHeight) ]
+                [ width "500", height (String.fromFloat <| 4 * buttonHeight) ]
                 [ Button.render
                     ( 0, 0 )
                     (TextContent "Increment")

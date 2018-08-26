@@ -10,31 +10,14 @@
 ----------------------------------------------------------------------
 
 
-module Svg.Button
-    exposing
-        ( Button
-        , Content(..)
-        , Location
-        , Msg
-        , MsgWrapper
-        , RepeatTime(..)
-        , Size
-        , checkSubscription
-        , getSize
-        , getState
-        , isTouchAware
-        , normalRepeatTime
-        , render
-        , renderBorder
-        , renderContent
-        , renderOverlay
-        , repeatingButton
-        , setSize
-        , setState
-        , setTouchAware
-        , simpleButton
-        , update
-        )
+module Svg.Button exposing
+    ( Button, Content(..), Location, Size, Msg, MsgWrapper, RepeatTime(..)
+    , simpleButton, repeatingButton
+    , getState, setState, isTouchAware, setTouchAware, getSize, setSize
+    , normalRepeatTime
+    , render, renderBorder, renderContent, renderOverlay
+    , update, checkSubscription
+    )
 
 {-| The `Svg.Button` module makes it easy to create SVG buttons.
 
@@ -43,7 +26,7 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 
 # Types
 
-@docs Button , Content, Location, Size, Msg, MsgWrapper, RepeatTime
+@docs Button, Content, Location, Size, Msg, MsgWrapper, RepeatTime
 
 
 # Constructors
@@ -73,6 +56,9 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 -}
 
 import Debug exposing (log)
+import Html
+import Html.Events exposing (on)
+import Json.Decode as JD exposing (field, float, map2)
 import Svg exposing (Attribute, Svg, g, rect, text, text_)
 import Svg.Attributes
     exposing
@@ -95,8 +81,7 @@ import Svg.Attributes
         )
 import Svg.Events exposing (onMouseDown, onMouseOut, onMouseOver, onMouseUp)
 import Task
-import Time exposing (Time)
-import TouchEvents exposing (Touch, onTouchEnd, onTouchMove, onTouchStart)
+import Time exposing (Posix)
 
 
 {-| Opaque internal message.
@@ -111,7 +96,7 @@ type Msg msg state
     | TouchStart (Button state) (MsgWrapper msg state)
     | TouchEnd (Button state) (MsgWrapper msg state)
     | Repeat (Button state) (MsgWrapper msg state)
-    | Subscribe Time (Button state) (MsgWrapper msg state)
+    | Subscribe Float (Button state) (MsgWrapper msg state)
 
 
 {-| Read a button's `state`.
@@ -201,7 +186,7 @@ type Button state
     = Button
         { size : Size
         , repeatTime : RepeatTime
-        , delay : Time
+        , delay : Float
         , enabled : Bool
         , state : state
         , touchAware : Bool
@@ -222,13 +207,13 @@ simpleButton =
 
 {-| First arg to `repeatingButton`.
 
-The two `Time` args to `RepeatTimeWithInitialDelay` are the initial delay and the subsequent repeat period.
+The two `Float` args to `RepeatTimeWithInitialDelay` are the initial delay and the subsequent repeat period, in milliseconds.
 
 -}
 type RepeatTime
     = NoRepeat
-    | RepeatTime Time
-    | RepeatTimeWithInitialDelay Time Time
+    | RepeatTime Float
+    | RepeatTimeWithInitialDelay Float Float
 
 
 {-| Like `simpleButton`, but repeats the click or tap periodically, as long as the mouse or finger is held down.
@@ -245,7 +230,7 @@ repeatingButton repeatTime size state =
         }
 
 
-repeatDelays : RepeatTime -> ( Time, Time )
+repeatDelays : RepeatTime -> ( Float, Float )
 repeatDelays repeatTime =
     case repeatTime of
         NoRepeat ->
@@ -265,9 +250,7 @@ It has an initial delay of 1/2 second and a repeat period of 1/10 second.
 -}
 normalRepeatTime : RepeatTime
 normalRepeatTime =
-    RepeatTimeWithInitialDelay
-        (500 * Time.millisecond)
-        (100 * Time.millisecond)
+    RepeatTimeWithInitialDelay 500 100
 
 
 {-| Call this to process a Button message from inside your wrapper.
@@ -377,7 +360,7 @@ update msg =
                     )
 
 
-repeatCmd : Time -> Button state -> MsgWrapper msg state -> Cmd msg
+repeatCmd : Float -> Button state -> MsgWrapper msg state -> Cmd msg
 repeatCmd delay button wrapper =
     case button of
         Button but ->
@@ -395,7 +378,7 @@ In order to check if a message is a subscription, call `checkSubscription`. If i
 Simple buttons don't need subscriptions. Only repeating buttons use them.
 
 -}
-checkSubscription : Msg msg state -> Maybe ( Time, Msg msg state )
+checkSubscription : Msg msg state -> Maybe ( Float, Msg msg state )
 checkSubscription msg =
     case msg of
         Subscribe delay button wrapper ->
@@ -416,13 +399,13 @@ render ( xf, yf ) content wrapper button =
         Button but ->
             let
                 ( xs, ys ) =
-                    ( toString xf, toString yf )
+                    ( String.fromFloat xf, String.fromFloat yf )
 
                 ( wf, hf ) =
                     but.size
 
                 ( ws, hs ) =
-                    ( toString wf, toString hf )
+                    ( String.fromFloat wf, String.fromFloat hf )
             in
             g
                 [ transform ("translate(" ++ xs ++ " " ++ ys ++ ")")
@@ -475,10 +458,10 @@ renderOverlay wrapper (Button button) =
             button.size
 
         ws =
-            toString w
+            String.fromFloat w
 
         hs =
-            toString h
+            String.fromFloat h
     in
     Svg.rect
         [ x "0"
@@ -511,10 +494,10 @@ renderBorder (Button button) =
             button.size
 
         ws =
-            toString (w - 2)
+            String.fromFloat (w - 2)
 
         hs =
-            toString (h - 2)
+            String.fromFloat (h - 2)
     in
     Svg.rect
         [ x "1"
@@ -545,10 +528,10 @@ renderContent content (Button button) =
                 button.size
 
             yfo2s =
-                toString (yf / 2)
+                String.fromFloat (yf / 2)
 
             xfo2s =
-                toString (xf / 2)
+                String.fromFloat (xf / 2)
           in
           case content of
             TextContent string ->
@@ -565,3 +548,79 @@ renderContent content (Button button) =
             SvgContent svg ->
                 svg
         ]
+
+
+
+---
+--- From https://github.com/knledg/touch-events/blob/master/src/TouchEvents.elm
+--- Copied, so I don't have to wait for that project to upgrade.
+---
+
+
+{-| event decoder
+-}
+eventDecoder : (Touch -> msg) -> String -> JD.Decoder msg
+eventDecoder msg eventKey =
+    JD.at [ eventKey, "0" ] (JD.map msg touchDecoder)
+
+
+{-| touch decoder
+-}
+touchDecoder : JD.Decoder Touch
+touchDecoder =
+    map2 Touch
+        (field "clientX" float)
+        (field "clientY" float)
+
+
+{-| Type alias for the touch record on the touch event object
+-}
+type alias Touch =
+    { clientX : Float
+    , clientY : Float
+    }
+
+
+{-| Lower level "touchend" event handler
+Takes the application `Msg` type which should take `TouchEvents.Touch`
+as a payload
+
+    type Msg
+        = UserSwipeEnd TouchEvents.Touch
+
+    view model =
+        div
+            [ TouchEvents.onTouchEnd UserSwipeEnd
+            ]
+            []
+
+-}
+onTouchEnd : (Touch -> msg) -> Html.Attribute msg
+onTouchEnd msg =
+    on "touchend" <| eventDecoder msg "changedTouches"
+
+
+{-| Lower level "touchstart" event handler
+Takes the application `Msg` type which should take `TouchEvents.Touch`
+as a payload
+
+    type Msg
+        = UserSwipeStart TouchEvents.Touch
+
+    view model =
+        div
+            [ TouchEvents.onTouchStart UserSwipeStart
+            ]
+            []
+
+-}
+onTouchStart : (Touch -> msg) -> Html.Attribute msg
+onTouchStart msg =
+    on "touchstart" <| eventDecoder msg "touches"
+
+
+{-| Lower level "touchmove" event handler
+-}
+onTouchMove : (Touch -> msg) -> Html.Attribute msg
+onTouchMove msg =
+    on "touchmove" <| eventDecoder msg "touches"
