@@ -2,7 +2,7 @@
 --
 -- Button.elm
 -- SVG Buttons
--- Copyright (c) 2018 Bill St. Clair <billstclair@gmail.com>
+-- Copyright (c) 2018-2019 Bill St. Clair <billstclair@gmail.com>
 -- Some rights reserved.
 -- Distributed under the MIT License
 -- See LICENSE.txt
@@ -11,7 +11,7 @@
 
 
 module Svg.Button exposing
-    ( Button, Content(..), Location, Size, Msg, MsgWrapper, RepeatTime(..)
+    ( Button, Content(..), Location, Size, Msg, RepeatTime(..)
     , simpleButton, repeatingButton
     , getState, setState, isTouchAware, setTouchAware, getSize, setSize
     , normalRepeatTime
@@ -26,7 +26,7 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 
 # Types
 
-@docs Button, Content, Location, Size, Msg, MsgWrapper, RepeatTime
+@docs Button, Content, Location, Size, Msg, RepeatTime
 
 
 # Constructors
@@ -86,17 +86,17 @@ import Time exposing (Posix)
 
 {-| Opaque internal message.
 
-You wrap these with the `MsgWrapper` you pass to `render`, and pass them to `update`.
+You wrap these with the `(Msg -> msg)` you pass to `render`, and pass them to `update`.
 
 -}
-type Msg msg state
-    = MouseDown (Button state) (MsgWrapper msg state)
-    | MouseOut (Button state) (MsgWrapper msg state)
-    | MouseUp (Button state) (MsgWrapper msg state)
-    | TouchStart (Button state) (MsgWrapper msg state)
-    | TouchEnd (Button state) (MsgWrapper msg state)
-    | Repeat (Button state) (MsgWrapper msg state)
-    | Subscribe Float (Button state) (MsgWrapper msg state)
+type Msg
+    = MouseDown
+    | MouseOut
+    | MouseUp
+    | TouchStart
+    | TouchEnd
+    | Repeat
+    | Subscribe Float
 
 
 {-| Read a button's `state`.
@@ -145,12 +145,6 @@ setTouchAware : Bool -> Button state -> Button state
 setTouchAware touchAware (Button button) =
     Button
         { button | touchAware = touchAware }
-
-
-{-| A user message wrapper which turns an Svg.Button.Msg into a user msg.
--}
-type alias MsgWrapper msg state =
-    Msg msg state -> msg
 
 
 {-| Two ways to draw the button content.
@@ -258,13 +252,13 @@ normalRepeatTime =
 The `Bool` in the return value is true if this message should be interpreted as a click on the button. Simple buttons never change the button or return a command you need to care about, but you'll need to call `getState` on the button to figure out what to do (unless your application has only a single button).
 
 -}
-update : Msg msg state -> ( Bool, Button state, Cmd msg )
-update msg =
+update : (Msg -> msg) -> Msg -> Button state -> ( Bool, Button state, Cmd msg )
+update wrapper msg button =
     case msg of
-        Subscribe _ button _ ->
+        Subscribe _ ->
             ( False, button, Cmd.none )
 
-        TouchStart button wrapper ->
+        TouchStart ->
             case button of
                 Button but ->
                     let
@@ -281,10 +275,10 @@ update msg =
                     in
                     ( initialDelay > 0
                     , button2
-                    , repeatCmd initialDelay button2 wrapper
+                    , repeatCmd initialDelay wrapper
                     )
 
-        MouseDown button wrapper ->
+        MouseDown ->
             case button of
                 Button but ->
                     let
@@ -300,10 +294,10 @@ update msg =
                     in
                     ( initialDelay > 0 && not but.touchAware
                     , button2
-                    , repeatCmd initialDelay button2 wrapper
+                    , repeatCmd initialDelay wrapper
                     )
 
-        MouseOut button wrapper ->
+        MouseOut ->
             case button of
                 Button but ->
                     let
@@ -316,10 +310,14 @@ update msg =
                     in
                     ( False
                     , button2
-                    , repeatCmd 0 button2 wrapper
+                    , if but.enabled then
+                        repeatCmd 0 wrapper
+
+                      else
+                        Cmd.none
                     )
 
-        TouchEnd button wrapper ->
+        TouchEnd ->
             case button of
                 Button but ->
                     let
@@ -332,10 +330,10 @@ update msg =
                     in
                     ( but.enabled && but.touchAware && but.delay <= 0
                     , button2
-                    , repeatCmd 0 button2 wrapper
+                    , repeatCmd 0 wrapper
                     )
 
-        MouseUp button wrapper ->
+        MouseUp ->
             case button of
                 Button but ->
                     let
@@ -348,27 +346,33 @@ update msg =
                     in
                     ( but.enabled && not but.touchAware && but.delay <= 0
                     , button2
-                    , repeatCmd 0 button2 wrapper
+                    , repeatCmd 0 wrapper
                     )
 
-        Repeat button wrapper ->
+        Repeat ->
             case button of
                 Button but ->
-                    ( True
-                    , button
-                    , repeatCmd but.delay button wrapper
+                    let
+                        delay =
+                            if but.enabled then
+                                but.delay
+
+                            else
+                                0
+                    in
+                    ( but.enabled
+                    , Button { but | delay = delay }
+                    , repeatCmd but.delay wrapper
                     )
 
 
-repeatCmd : Float -> Button state -> MsgWrapper msg state -> Cmd msg
-repeatCmd delay button wrapper =
-    case button of
-        Button but ->
-            let
-                task =
-                    Task.succeed (Subscribe delay button wrapper)
-            in
-            Task.perform wrapper task
+repeatCmd : Float -> (Msg -> msg) -> Cmd msg
+repeatCmd delay wrapper =
+    let
+        task =
+            Task.succeed (Subscribe delay)
+    in
+    Task.perform wrapper task
 
 
 {-| Subscriptions are one type of message you can get inside your wrapper.
@@ -378,11 +382,11 @@ In order to check if a message is a subscription, call `checkSubscription`. If i
 Simple buttons don't need subscriptions. Only repeating buttons use them.
 
 -}
-checkSubscription : Msg msg state -> Maybe ( Float, Msg msg state )
-checkSubscription msg =
+checkSubscription : Msg -> Button state -> Maybe ( Float, Msg )
+checkSubscription msg button =
     case msg of
-        Subscribe delay button wrapper ->
-            Just ( delay, Repeat button wrapper )
+        Subscribe delay ->
+            Just ( delay, Repeat )
 
         _ ->
             Nothing
@@ -393,7 +397,7 @@ checkSubscription msg =
 Does this by sizing an SVG `g` element at the `Location` you pass and the size of the `Button`, and calling `renderBorder`, `renderContent`, and `renderOverlay` inside it.
 
 -}
-render : Location -> Content msg -> MsgWrapper msg state -> Button state -> Svg msg
+render : Location -> Content msg -> (Msg -> msg) -> Button state -> Svg msg
 render ( xf, yf ) content wrapper button =
     case button of
         Button but ->
@@ -448,7 +452,7 @@ You won't usually use this, letting `render` call it for you.
 You should call this AFTER drawing your button, so that the overlay is the last thing drawn. Otherwise, it may not get all the mouse/touch events.
 
 -}
-renderOverlay : MsgWrapper msg state -> Button state -> Svg msg
+renderOverlay : (Msg -> msg) -> Button state -> Svg msg
 renderOverlay wrapper (Button button) =
     let
         but =
@@ -470,11 +474,11 @@ renderOverlay wrapper (Button button) =
         , height hs
         , opacity "0"
         , fillOpacity "1"
-        , onTouchStart (\touch -> wrapper <| TouchStart but wrapper)
-        , onMouseDown (wrapper <| MouseDown but wrapper)
-        , onTouchEnd (\touch -> wrapper <| TouchEnd but wrapper)
-        , onMouseUp (wrapper <| MouseUp but wrapper)
-        , onMouseOut (wrapper <| MouseOut but wrapper)
+        , onTouchStart (\touch -> wrapper TouchStart)
+        , onMouseDown (wrapper MouseDown)
+        , onTouchEnd (\touch -> wrapper TouchEnd)
+        , onMouseUp (wrapper MouseUp)
+        , onMouseOut (wrapper MouseOut)
         , disableSelection
         ]
         []

@@ -10,7 +10,7 @@
 ----------------------------------------------------------------------
 
 
-module Example exposing (Model, Msg(..), Operation(..), State, WhichButton(..), buttonHeight, buttonSize, init, main, operate, setButton, subscriptions, update, view)
+module SvgButtonExample exposing (Model, Msg(..), Operation(..), buttonHeight, buttonSize, init, main, operate, subscriptions, update, view)
 
 import Browser
 import Html exposing (Html, div, p, text)
@@ -49,26 +49,17 @@ type Operation
     | Decrement
 
 
-type WhichButton
-    = IncrementButton
-    | DecrementButton
-
-
-type alias State =
-    ( Operation, WhichButton )
-
-
 type alias Model =
     { cnt : Int
-    , incrementButton : Button State
-    , decrementButton : Button State
-    , subscription : Maybe ( Float, Button.Msg Msg State )
+    , incrementButton : Button ()
+    , decrementButton : Button ()
+    , subscription : Maybe ( Float, Button.Msg, Operation )
     }
 
 
 type Msg
-    = SimpleButtonMsg (Button.Msg Msg Operation)
-    | ButtonMsg (Button.Msg Msg State)
+    = SimpleButtonMsg Button.Msg Operation
+    | ButtonMsg Button.Msg Operation
 
 
 buttonSize : Button.Size
@@ -94,28 +85,14 @@ init =
             Button.repeatingButton
                 Button.normalRepeatTime
                 buttonSize
-                ( Increment, IncrementButton )
+                ()
         , decrementButton =
             Button.repeatingButton
                 Button.normalRepeatTime
                 buttonSize
-                ( Decrement, DecrementButton )
+                ()
         , subscription = Nothing
         }
-
-
-setButton : Button State -> Model -> Model
-setButton button model =
-    let
-        ( _, idx ) =
-            Button.getState button
-    in
-    case idx of
-        IncrementButton ->
-            { model | incrementButton = button }
-
-        DecrementButton ->
-            { model | decrementButton = button }
 
 
 operate : Bool -> Operation -> Model -> Model
@@ -138,18 +115,32 @@ operate isClick operation model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        SimpleButtonMsg m ->
+        SimpleButtonMsg m operation ->
             let
-                ( isClick, button, _ ) =
-                    Button.update m
+                button =
+                    case operation of
+                        Increment ->
+                            simpleIncrementButton
 
-                operation =
-                    Button.getState button
+                        Decrement ->
+                            simpleDecrementButton
+
+                ( isClick, _, _ ) =
+                    Button.update (\bm -> SimpleButtonMsg bm operation) m button
             in
             cmdNone <| operate isClick operation model
 
-        ButtonMsg m ->
-            case Button.checkSubscription m of
+        ButtonMsg m operation ->
+            let
+                button =
+                    case operation of
+                        Increment ->
+                            model.incrementButton
+
+                        Decrement ->
+                            model.decrementButton
+            in
+            case Button.checkSubscription m button of
                 Just ( time, m2 ) ->
                     cmdNone
                         { model
@@ -158,21 +149,33 @@ update msg model =
                                     Nothing
 
                                 else
-                                    Just ( time, m2 )
+                                    Just ( time, m2, operation )
                         }
 
                 Nothing ->
                     let
-                        ( isClick, button, cmd ) =
-                            Button.update m
-
-                        ( operation, _ ) =
-                            Button.getState button
+                        ( isClick, button2, cmd ) =
+                            Button.update (\bm -> ButtonMsg bm operation) m button
 
                         mdl =
-                            setButton button model
+                            case operation of
+                                Increment ->
+                                    { model | incrementButton = button2 }
+
+                                Decrement ->
+                                    { model | decrementButton = button2 }
                     in
                     ( operate isClick operation mdl, cmd )
+
+
+simpleIncrementButton : Button ()
+simpleIncrementButton =
+    Button.simpleButton buttonSize ()
+
+
+simpleDecrementButton : Button ()
+simpleDecrementButton =
+    Button.simpleButton buttonSize ()
 
 
 view : Model -> Html Msg
@@ -188,23 +191,23 @@ view model =
                 [ Button.render
                     ( 0, 0 )
                     (TextContent "Increment")
-                    SimpleButtonMsg
-                    (Button.simpleButton buttonSize Increment)
+                    (\m -> SimpleButtonMsg m Increment)
+                    simpleIncrementButton
                 , Button.render
                     ( 0, buttonHeight - 2 )
                     (TextContent "Repeating Increment")
-                    ButtonMsg
+                    (\m -> ButtonMsg m Increment)
                     model.incrementButton
                 , Button.render
                     ( 0, 2 * (buttonHeight - 2) )
                     (TextContent "Repeating Decrement")
-                    ButtonMsg
+                    (\m -> ButtonMsg m Decrement)
                     model.decrementButton
                 , Button.render
                     ( 0, 3 * (buttonHeight - 2) )
                     (TextContent "Decrement")
-                    SimpleButtonMsg
-                    (Button.simpleButton buttonSize Decrement)
+                    (\m -> SimpleButtonMsg m Decrement)
+                    simpleDecrementButton
                 ]
             ]
         ]
@@ -216,5 +219,5 @@ subscriptions model =
         Nothing ->
             Sub.none
 
-        Just ( time, msg ) ->
-            Time.every time (\_ -> ButtonMsg msg)
+        Just ( time, msg, operation ) ->
+            Time.every time (\_ -> ButtonMsg msg operation)
