@@ -18,27 +18,29 @@ As one of your `Msg` options, you need a wrapper for the button messages:
 
     type Msg
       = ...
-      | ButtonMsg (Svg.Button.Msg Msg Operation)
+      | ButtonMsg Svg.Button.Msg Operation
       ...
     
-Your model needs to store repeating buttons, but not simple buttons, and your update function needs to update the model when it receives messages containing them. See the example for how to code a repeating button, and for how to use `Svg.Button.getState` to process a click. This README documents only simple buttons.
+Your model needs to store repeating buttons, but not simple buttons, and your update function needs to update the model when it receives messages containing them. See the example for how to code a repeating button. This README documents only simple buttons.
     
 In your `update` function:
 
     case msg of
         ...
-        ButtonMsg m ->
+        ButtonMsg m operation ->
             let
-                ( isClick, button, _ ) =
-                    Svg.Button.update m
+                button =
+                   getButton operation model
 
-                operation =
-                    Svg.Button.getState button
+                ( isClick, btn, _ ) =
+                    Svg.Button.update (\bm -> ButtonMsg bm operation)
+                        m
+                        button
             in
-            operate isClick operation model
+            operate isClick operation mdl
         ...
 
-Where `operate` would be a function you defined to actually do the operation.
+Where `getButton` is a function to lookup the button corresponding to the given operation and `operate` actually does the operation.
 
 Use `Svg.Button.Content` to define the button's appearance:
 
@@ -48,9 +50,9 @@ Use `Svg.Button.Content` to define the button's appearance:
 
 Define a simple increment button:
 
-    incrementButton : Svg.Button.Button Operation
+    incrementButton : Svg.Button.Button ()
     incrementButton =
-        Svg.Button.simpleButton (100, 50) Increment
+        Svg.Button.simpleButton (100, 50) ()
 
 In your `view` function:
 
@@ -59,7 +61,7 @@ In your `view` function:
         , Svg.Button.render
               (x, y)
               pressMeContent
-              ButtonMsg
+              (\m -> ButtonMsg m Increment)
               incrementButton
         ...
         ]

@@ -27,91 +27,83 @@ Our `Button.Msg` has a more complicated state, including both the operation and 
         = Increment
         | Decrement
 
-    type WhichButton
-        = IncrementButton
-        | DecrementButton
-
-    type alias State =
-        ( Operation, WhichButton )
-
     type alias Model =
         { cnt : Int
-        , incrementButton : Button State
-        , decrementButton : Button State
-        , subscription : Maybe ( Time, Button.Msg Msg State )
+        , incrementButton : Button ()
+        , decrementButton : Button ()
+        , subscription : Maybe ( Float, Button.Msg, Operation )
         }
 
 The example splits button messages into simple ones, containing only an `Operation` for state, and more general ones, containing `(Operation, WhichButton)` for state:
 
     type Msg
-        = SimpleButtonMsg (Button.Msg Msg Operation)
-        | ButtonMsg (Button.Msg Msg State)
+        = SimpleButtonMsg Button.Msg Operation
+        | ButtonMsg Button.Msg Operation
 
 And here's how those two stateful buttons are initialized:
 
     init : ( Model, Cmd Msg )
     init =
-        { cnt = 0
-        , incrementButton =
-            Button.repeatingButton
-                Button.normalRepeatTime
-                buttonSize
-                ( Increment, IncrementButton )
-        , decrementButton =
-            Button.repeatingButton
-                Button.normalRepeatTime
-                buttonSize
-                ( Decrement, DecrementButton )
-        , subscription = Nothing
-        }
-            ! []
-
-The update of the button is moved to a separate function:
-
-    setButton : Button State -> Model -> Model
-    setButton button model =
-        let
-            ( _, idx ) =
-                Button.getState button
-        in
-        case idx of
-            IncrementButton ->
-                { model | incrementButton = button }
-
-            DecrementButton ->
-                { model | decrementButton = button }
-
+        ( { cnt = 0
+          , incrementButton =
+              Button.repeatingButton
+                  Button.normalRepeatTime
+                  buttonSize
+                  ()
+          , decrementButton =
+              Button.repeatingButton
+                  Button.normalRepeatTime
+                  buttonSize
+                  ()
+          , subscription = Nothing
+          }
+        , Cmd.none
+        )
+            
 The update function needs to handle two cases for the repeating buttons, one of them provides information for subscriptions, and the other provides clicks and updated button state.
 
     update : Msg -> Model -> ( Model, Cmd Msg )
     update msg model =
         case msg of
             ...
-            ButtonMsg msg ->
-                case Button.checkSubscription msg of
-                    Just ( time, msg ) ->
-                        { model
-                            | subscription =
-                                if time <= 0 then
-                                    Nothing
-                                else
-                                    Just ( time, msg )
-                        }
-                            ! []
+            ButtonMsg m operation ->
+                let
+                    button =
+                        case operation of
+                            Increment ->
+                                model.incrementButton
+
+                            Decrement ->
+                                model.decrementButton
+                in
+                case Button.checkSubscription m button of
+                    Just ( time, m2 ) ->
+                        ( { model
+                             | subscription =
+                                 if time <= 0 then
+                                     Nothing
+                                 else
+                                     Just ( time, m2, operation )
+                          }
+                        , Cmd.none
+                        )
 
                     Nothing ->
                         let
-                            ( isClick, button, cmd ) =
-                                Button.update msg
-
-                            ( operation, _ ) =
-                                Button.getState button
+                            ( isClick, button2, cmd ) =
+                                Button.update (bm -> ButtonMsg bm operation)
+                                    m
+                                    button
 
                             mdl =
-                                setButton button model
+                            case operation of
+                                Increment ->
+                                    { model | incrementButton = button2 }
+
+                                Decrement ->
+                                    { model | decrementButton = button2 }
                         in
-                        operate isClick operation mdl
-                            ! [ cmd ]
+                        (operate isClick operation mdl, cmd)
 
 Finally, the subscription information is used to subscribe to `Time` updates:
 
@@ -121,5 +113,5 @@ Finally, the subscription information is used to subscribe to `Time` updates:
             Nothing ->
                 Sub.none
 
-            Just ( time, msg ) ->
-                Time.every time (\_ -> ButtonMsg msg)
+            Just ( time, msg, operation ) ->
+                Time.every time (\_ -> ButtonMsg msg operation)
