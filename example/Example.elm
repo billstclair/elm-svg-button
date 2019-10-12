@@ -30,6 +30,7 @@ import Svg.Attributes
 import Svg.Button as Button
     exposing
         ( Button
+        , Colors
         , Content(..)
         )
 import Time exposing (Posix)
@@ -77,6 +78,18 @@ cmdNone msg =
     ( msg, Cmd.none )
 
 
+repeatingColors : Colors
+repeatingColors =
+    let
+        colors =
+            Button.defaultColors
+    in
+    { colors
+        | background = "lightblue"
+        , text = "green"
+    }
+
+
 init : ( Model, Cmd Msg )
 init =
     cmdNone
@@ -86,11 +99,13 @@ init =
                 Button.normalRepeatTime
                 buttonSize
                 ()
+                |> Button.setColors repeatingColors
         , decrementButton =
             Button.repeatingButton
                 Button.normalRepeatTime
                 buttonSize
                 ()
+                |> Button.setColors repeatingColors
         , subscription = Nothing
         }
 

@@ -11,10 +11,11 @@
 
 
 module Svg.Button exposing
-    ( Button, Content(..), Location, Size, Msg, RepeatTime(..)
+    ( Button, Content(..), Location, Size, Msg, RepeatTime(..), Colors
     , simpleButton, repeatingButton
     , getState, setState, isTouchAware, setTouchAware, getSize, setSize
-    , normalRepeatTime
+    , getColors, setColors
+    , normalRepeatTime, defaultColors
     , render, renderBorder, renderContent, renderOverlay
     , update, checkSubscription
     )
@@ -26,7 +27,7 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 
 # Types
 
-@docs Button, Content, Location, Size, Msg, RepeatTime
+@docs Button, Content, Location, Size, Msg, RepeatTime, Colors
 
 
 # Constructors
@@ -37,11 +38,12 @@ Currently, the buttons are rectangular, with a two-pixel wide black border, cont
 # Button state accessors
 
 @docs getState, setState, isTouchAware, setTouchAware, getSize, setSize
+@docs getColors, setColors
 
 
 # Constants
 
-@docs normalRepeatTime
+@docs normalRepeatTime, defaultColors
 
 
 # Rendering
@@ -171,6 +173,25 @@ type alias Size =
     ( Float, Float )
 
 
+{-| The Colors for a button.
+-}
+type alias Colors =
+    { background : String
+    , outline : String
+    , text : String
+    }
+
+
+{-| The defaut colors.
+-}
+defaultColors : Colors
+defaultColors =
+    { background = "white"
+    , outline = "black"
+    , text = "black"
+    }
+
+
 {-| An Svg Button.
 
 Create one with `simpleButton` or `repeatingButton`.
@@ -184,6 +205,7 @@ type Button state
         , enabled : Bool
         , state : state
         , touchAware : Bool
+        , colors : Colors
         }
 
 
@@ -221,7 +243,22 @@ repeatingButton repeatTime size state =
         , enabled = True
         , state = state
         , touchAware = False
+        , colors = defaultColors
         }
+
+
+{-| Change the colors of a button.
+-}
+setColors : Colors -> Button state -> Button state
+setColors colors (Button button) =
+    Button { button | colors = colors }
+
+
+{-| Get the colors of a button.
+-}
+getColors : Button state -> Colors
+getColors (Button button) =
+    button.colors
 
 
 repeatDelays : RepeatTime -> ( Float, Float )
@@ -502,14 +539,17 @@ renderBorder (Button button) =
 
         hs =
             String.fromFloat (h - 2)
+
+        colors =
+            button.colors
     in
     Svg.rect
         [ x "1"
         , y "1"
         , width ws
         , height hs
-        , stroke "black"
-        , fill "white"
+        , stroke colors.outline
+        , fill colors.background
         , strokeWidth "2"
         , opacity "1"
         , strokeOpacity "1"
@@ -540,7 +580,7 @@ renderContent content (Button button) =
           case content of
             TextContent string ->
                 text_
-                    [ fill "black"
+                    [ fill button.colors.text
                     , fontSize yfo2s
                     , x xfo2s
                     , y yfo2s
