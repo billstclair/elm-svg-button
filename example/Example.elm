@@ -52,8 +52,8 @@ type Operation
 
 type alias Model =
     { cnt : Int
-    , incrementButton : Button ()
-    , decrementButton : Button ()
+    , incrementButton : Button () Msg
+    , decrementButton : Button () Msg
     , subscription : Maybe ( Float, Button.Msg, Operation )
     }
 
@@ -132,16 +132,10 @@ update msg model =
     case msg of
         SimpleButtonMsg m operation ->
             let
-                button =
-                    case operation of
-                        Increment ->
-                            simpleIncrementButton
-
-                        Decrement ->
-                            simpleDecrementButton
-
                 ( isClick, _, _ ) =
-                    Button.update (\bm -> SimpleButtonMsg bm operation) m button
+                    Button.update (\bm -> SimpleButtonMsg bm operation)
+                        m
+                        simpleButton
             in
             cmdNone <| operate isClick operation model
 
@@ -183,14 +177,40 @@ update msg model =
                     ( operate isClick operation mdl, cmd )
 
 
-simpleIncrementButton : Button ()
-simpleIncrementButton =
+simpleButton : Button () Msg
+simpleButton =
     Button.simpleButton buttonSize ()
 
 
-simpleDecrementButton : Button ()
-simpleDecrementButton =
-    Button.simpleButton buttonSize ()
+triangularButtonSize : Button.Size
+triangularButtonSize =
+    ( 166, 120 )
+
+
+triangularButtonWidth =
+    triangularButtonSize |> Tuple.first
+
+
+triangularButtonHeight =
+    triangularButtonSize |> Tuple.second
+
+
+triangularColors : Colors
+triangularColors =
+    let
+        colors =
+            Button.defaultColors
+    in
+    { colors
+        | background = "purple"
+    }
+
+
+triangularButton : Button.TriangularButtonDirection -> Button () Msg
+triangularButton direction =
+    Button.simpleButton triangularButtonSize ()
+        |> Button.setColors triangularColors
+        |> Button.setTriangularButtonRenderers direction
 
 
 view : Model -> Html Msg
@@ -207,7 +227,7 @@ view model =
                     ( 0, 0 )
                     (TextContent "Increment")
                     (\m -> SimpleButtonMsg m Increment)
-                    simpleIncrementButton
+                    simpleButton
                 , Button.render
                     ( 0, buttonHeight - 2 )
                     (TextContent "Repeating Increment")
@@ -222,7 +242,32 @@ view model =
                     ( 0, 3 * (buttonHeight - 2) )
                     (TextContent "Decrement")
                     (\m -> SimpleButtonMsg m Decrement)
-                    simpleDecrementButton
+                    simpleButton
+                ]
+            ]
+        , p []
+            [ svg
+                [ width "500", height "500" ]
+                [ Button.render
+                    ( triangularButtonWidth, 0 )
+                    NoContent
+                    (\m -> SimpleButtonMsg m Increment)
+                    (triangularButton Button.UpButton)
+                , Button.render
+                    ( 0, triangularButtonHeight )
+                    NoContent
+                    (\m -> SimpleButtonMsg m Decrement)
+                    (triangularButton Button.LeftButton)
+                , Button.render
+                    ( triangularButtonWidth, 2 * triangularButtonHeight )
+                    NoContent
+                    (\m -> SimpleButtonMsg m Increment)
+                    (triangularButton Button.DownButton)
+                , Button.render
+                    ( 2 * triangularButtonWidth, triangularButtonHeight )
+                    NoContent
+                    (\m -> SimpleButtonMsg m Decrement)
+                    (triangularButton Button.RightButton)
                 ]
             ]
         ]

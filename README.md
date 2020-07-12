@@ -6,7 +6,7 @@ This library automates the button part of an SVG button, so you can focus on its
 
 The [`example`](https://github.com/billstclair/elm-svg-button/tree/master/example) directory contains a working, elm-reactor-friendly, example.
 
-So far, the library supports one basic button appearance, a rectangle with a two-pixel wide black border. I intend to allow you to customize the border and button shape. If you need that, please let me know, so I can prioritize those changes.
+The library makes it easy to render rectangular and triangular buttons, and allows you to replace those renderers with your own custom code.
 
 A button has user state, which you usually use to encode what it does (for repeating buttons, it also needs to encode the button's identity). But you can put anything you need there, and read and update it as necesssary (with `Svg.Button.getState` and `Svg.Button.setState`).
 
@@ -66,6 +66,5 @@ In your `view` function:
         ...
         ]
 
-Bill St. Clair<br/>
-20 March, 2018
+Bill St. Clair, 20 March, 2018
 
