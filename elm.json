@@ -3,7 +3,7 @@
     "name": "billstclair/elm-svg-button",
     "summary": "elm-svg-button eases creation of SVG buttons.",
     "license": "MIT",
-    "version": "3.1.0",
+    "version": "4.0.0",
     "exposed-modules": [
         "Svg.Button"
     ],
